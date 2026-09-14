@@ -51,6 +51,36 @@ body {
   font-size: 14px;
 }
 
+/* Suppress the browser/WebView's default focus ring everywhere (it reads as
+ * a stray blue border, especially in the screenplay editor) and replace it
+ * with a deliberate one only for keyboard navigation. */
+button,
+input,
+textarea,
+select,
+[contenteditable] {
+  outline: none;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[contenteditable]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* The screenplay editor's own fields already show a quiet border+tint on
+ * focus (see .element-text etc. below) — WebKit treats text inputs as
+ * "focus-visible" even on a plain mouse click, so without this override the
+ * rule above would still draw a loud accent box around them. */
+.element-text:focus-visible,
+.scene-heading-input:focus-visible,
+.scene-synopsis:focus-visible {
+  outline: none;
+}
+
 button {
   font-family: var(--sans);
   cursor: pointer;
@@ -340,21 +370,82 @@ button {
   margin-bottom: 0.15rem;
 }
 
-.element-type-select {
-  font-family: var(--sans);
-  font-size: 0.62rem;
-  color: var(--ink-faint);
+/* Element type dropdown (replaces a native <select>) */
+.type-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.type-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  margin-top: 0.15rem;
   border: none;
   background: transparent;
-  width: 5.4rem;
-  flex-shrink: 0;
+  color: var(--ink-faint);
+  border-radius: 4px;
   opacity: 0;
   transition: opacity 0.1s;
 }
 
-.element-row:hover .element-type-select,
-.element-type-select:focus {
+.element-row:hover .type-menu-trigger,
+.type-menu.open .type-menu-trigger {
   opacity: 1;
+}
+
+.type-menu-trigger:hover {
+  background: var(--line);
+  color: var(--ink);
+}
+
+.type-menu-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  margin-top: 0.25rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 0.35rem;
+  min-width: 10rem;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.type-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.type-menu-item:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.type-menu-item.active {
+  font-weight: 600;
+}
+
+.type-menu-check {
+  width: 13px;
+  height: 13px;
+  color: var(--accent);
+  flex-shrink: 0;
 }
 
 .element-text {
@@ -376,35 +467,54 @@ button {
   background: var(--paper);
 }
 
+.element-row.element-action,
+.element-row.element-shot {
+  justify-content: flex-start;
+}
+
+.element-row.element-character,
+.element-row.element-dialogue,
+.element-row.element-parenthetical {
+  justify-content: center;
+}
+
+.element-row.element-transition {
+  justify-content: flex-end;
+}
+
 .el-action {
   width: 100%;
+  text-align: left;
 }
 
 .el-character {
-  margin-left: 2in;
+  width: 3in;
+  flex: 0 0 auto;
+  text-align: center;
   text-transform: uppercase;
-  max-width: 3in;
 }
 
 .el-dialogue {
-  margin-left: 1in;
-  max-width: 3.5in;
+  width: 3.2in;
+  flex: 0 0 auto;
+  text-align: left;
 }
 
 .el-parenthetical {
-  margin-left: 1.5in;
-  max-width: 2.5in;
-  font-style: italic;
+  width: 2.2in;
+  flex: 0 0 auto;
+  text-align: left;
 }
 
 .el-transition {
-  margin-left: auto;
+  flex: 0 0 auto;
   text-align: right;
   text-transform: uppercase;
   max-width: 2.5in;
 }
 
 .el-shot {
+  text-align: left;
   text-transform: uppercase;
   font-weight: 700;
 }
@@ -784,7 +894,7 @@ button {
   .toolbar,
   .sidebar,
   .status-bar,
-  .element-type-select,
+  .type-menu,
   .add-scene-button,
   .scene-number,
   .scene-color,

@@ -1,11 +1,11 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { useStore } from "../store";
 import type { Document, ElementType, Scene } from "../types";
 import { ELEMENT_TYPE_CYCLE, ELEMENT_TYPE_LABELS, nextElementType } from "../types";
 import { newElement, newScene, resyncEntities, sceneWordCount, tint, wordCount } from "../lib/model";
 import { confirmDialog } from "../lib/dialog";
-import { IconPlus, IconTrash } from "./icons";
+import { IconCheck, IconChevronDown, IconPlus, IconTrash } from "./icons";
 
 const HEADING_PATTERN = /^(INT\.\/EXT\.|INT\/EXT|EXT\.\/INT\.|INT\.|EXT\.|EST\.|I\/E\.)\s*\S/i;
 const COMMON_TRANSITIONS = ["CUT TO:", "DISSOLVE TO:", "SMASH CUT TO:", "FADE TO:", "FADE OUT."];
@@ -105,6 +105,55 @@ function ElementField({
       onBlur={onBlur}
       spellCheck
     />
+  );
+}
+
+/** Dropdown for manually overriding an element's type (F-ED-1 manual
+ * override). Tab/Shift+Tab still cycles types without opening this. */
+function TypeMenu({ value, onSelect }: { value: ElementType; onSelect: (type: ElementType) => void }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocMouseDown(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    window.document.addEventListener("mousedown", onDocMouseDown);
+    return () => window.document.removeEventListener("mousedown", onDocMouseDown);
+  }, [open]);
+
+  return (
+    <div className={`type-menu ${open ? "open" : ""}`} ref={wrapRef}>
+      <button
+        type="button"
+        className="type-menu-trigger"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen((v) => !v)}
+        title="Element type (or press Tab / Shift+Tab)"
+      >
+        <IconChevronDown size={12} />
+      </button>
+      {open && (
+        <div className="type-menu-panel">
+          {ELEMENT_TYPE_CYCLE.map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={`type-menu-item ${t === value ? "active" : ""}`}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onSelect(t);
+                setOpen(false);
+              }}
+            >
+              <span className="type-menu-check">{t === value ? <IconCheck size={13} /> : null}</span>
+              {ELEMENT_TYPE_LABELS[t]}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -272,18 +321,7 @@ export default function Editor() {
 
               {scene.elements.map((el) => (
                 <div className={`element-row element-${el.type}`} key={el.id}>
-                  <select
-                    className="element-type-select"
-                    value={el.type}
-                    onChange={(e) => setElementType(scene.id, el.id, e.target.value as ElementType)}
-                    title="Element type (or press Tab / Shift+Tab)"
-                  >
-                    {ELEMENT_TYPE_CYCLE.map((t) => (
-                      <option key={t} value={t}>
-                        {ELEMENT_TYPE_LABELS[t]}
-                      </option>
-                    ))}
-                  </select>
+                  <TypeMenu value={el.type} onSelect={(type) => setElementType(scene.id, el.id, type)} />
                   <ElementField
                     elementType={el.type}
                     className={`element-text el-${el.type}`}
