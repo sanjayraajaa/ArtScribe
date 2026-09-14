@@ -76,7 +76,7 @@ select:focus-visible,
  * "focus-visible" even on a plain mouse click, so without this override the
  * rule above would still draw a loud accent box around them. */
 .element-text:focus-visible,
-.scene-heading-input:focus-visible,
+.scene-location-input:focus-visible,
 .scene-synopsis:focus-visible {
   outline: none;
 }
@@ -290,13 +290,19 @@ button {
 
 .scene-toolbar {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.3rem;
   margin: 0 -1in 0.6rem -1.5in;
   padding: 0.4rem 1in 0.4rem 0.6rem;
   font-family: var(--sans);
   border-left: 4px solid var(--line-strong);
   border-radius: 4px;
+}
+
+.scene-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .scene-number {
@@ -305,24 +311,80 @@ button {
   color: var(--ink-faint);
   min-width: 1.4rem;
   text-align: right;
+  flex-shrink: 0;
 }
 
-.scene-heading-input {
+/* INT./EXT. and DAY/NIGHT read as plain document text, not form controls —
+ * no border/background until hovered, chevron hidden until hovered/open. */
+.scene-prefix-dropdown .act-menu-trigger,
+.scene-time-dropdown .act-menu-trigger {
+  font-family: var(--mono);
+  font-size: 12pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0 0.2rem;
+  color: var(--ink);
+}
+
+.scene-prefix-dropdown .act-menu-trigger:hover,
+.scene-time-dropdown .act-menu-trigger:hover {
+  border-color: var(--line-strong);
+  background: var(--paper-raised);
+}
+
+.scene-prefix-dropdown .act-menu-chevron,
+.scene-time-dropdown .act-menu-chevron {
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.scene-prefix-dropdown:hover .act-menu-chevron,
+.scene-prefix-dropdown.open .act-menu-chevron,
+.scene-time-dropdown:hover .act-menu-chevron,
+.scene-time-dropdown.open .act-menu-chevron {
+  opacity: 1;
+}
+
+.scene-heading-dash {
+  color: var(--ink-faint);
+  flex-shrink: 0;
+}
+
+.scene-location-input {
   font-family: var(--mono);
   font-weight: 700;
   text-transform: uppercase;
-  flex: 1 1 auto;
-  min-width: 8rem;
+  width: 100%;
   border: 1px solid transparent;
   background: transparent;
   padding: 0.15rem 0.3rem;
   border-radius: 4px;
 }
 
-.scene-heading-input:hover,
-.scene-heading-input:focus {
+.scene-location-input:hover,
+.scene-location-input:focus {
   border-color: var(--line-strong);
   background: var(--paper-raised);
+}
+
+.combo-box {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 6rem;
+}
+
+.combo-panel {
+  min-width: 100%;
+  width: max-content;
+  max-width: 16rem;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.scene-toolbar-spacer {
+  flex: 1;
 }
 
 .scene-color {
@@ -542,11 +604,13 @@ button {
 }
 
 .add-scene-button {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
-  margin-top: 1rem;
-  padding: 0.5rem 1rem;
+  max-width: 7.5in;
+  margin: 1rem auto 0;
+  padding: 0.6rem 1rem;
   border: 1px dashed var(--line-strong);
   border-radius: 6px;
   background: transparent;
@@ -920,7 +984,7 @@ button {
   .add-scene-button,
   .scene-number,
   .scene-color,
-  .act-menu,
+  .scene-act-picker,
   .scene-synopsis,
   .scene-toolbar .icon-button {
     display: none !important;
@@ -940,10 +1004,19 @@ button {
     padding: 0 !important;
     margin: 1em 0 0 -1.5in !important;
   }
-  .scene-heading-input {
+  .scene-prefix-dropdown .type-menu-panel,
+  .scene-time-dropdown .type-menu-panel {
+    display: none !important;
+  }
+  .scene-prefix-dropdown .act-menu-trigger,
+  .scene-time-dropdown .act-menu-trigger,
+  .scene-location-input {
     border: none !important;
     background: none !important;
-    padding: 0 0.3rem;
+    padding: 0 0.2rem;
+  }
+  .act-menu-trigger svg {
+    display: none !important;
   }
   .element-text {
     border: none !important;

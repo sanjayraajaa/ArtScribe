@@ -3,7 +3,18 @@ import type { ChangeEvent, KeyboardEvent } from "react";
 import { useStore } from "../store";
 import type { Document, ElementType, Scene } from "../types";
 import { ELEMENT_TYPE_CYCLE, ELEMENT_TYPE_LABELS, nextElementType } from "../types";
-import { newElement, newScene, resyncEntities, sceneWordCount, tint, wordCount } from "../lib/model";
+import {
+  formatHeading,
+  newElement,
+  newScene,
+  parseHeading,
+  resyncEntities,
+  SCENE_PREFIX_OPTIONS,
+  SCENE_TIME_OPTIONS,
+  sceneWordCount,
+  tint,
+  wordCount,
+} from "../lib/model";
 import { confirmDialog } from "../lib/dialog";
 import {
   IconAlignLeft,
@@ -68,8 +79,9 @@ type FieldEl = HTMLTextAreaElement | HTMLInputElement;
 const SINGLE_LINE_TYPES: ElementType[] = ["character", "parenthetical", "transition", "shot"];
 
 /** Multi-line element types (action, dialogue) render as an auto-growing
- * textarea; single-line types render as an <input> so native <datalist>
- * autocomplete works (the list attribute isn't functional on textarea). */
+ * textarea; single-line types render as an <input>. Character and
+ * Transition pass `suggestions` to get an app-styled autocomplete combobox
+ * instead of a plain field. */
 function ElementField({
   elementType,
   value,
@@ -79,7 +91,7 @@ function ElementField({
   onBlur,
   className,
   fieldRef,
-  listId,
+  suggestions,
 }: {
   elementType: ElementType;
   value: string;
@@ -89,15 +101,29 @@ function ElementField({
   onBlur: () => void;
   className: string;
   fieldRef: (el: FieldEl | null) => void;
-  listId?: string;
+  suggestions?: string[];
 }) {
+  if (suggestions) {
+    return (
+      <ComboBox
+        fieldRef={fieldRef}
+        className={className}
+        value={value}
+        options={suggestions}
+        onChange={onChange}
+        onFocus={onFocus}
+        onCommit={onBlur}
+        onKeyDown={onKeyDown}
+      />
+    );
+  }
+
   if (SINGLE_LINE_TYPES.includes(elementType)) {
     return (
       <input
         ref={fieldRef}
         className={className}
         value={value}
-        list={listId}
         onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         onFocus={onFocus}
@@ -191,7 +217,7 @@ function ActMenu({
   }, [open]);
 
   return (
-    <div className="act-menu" ref={wrapRef}>
+    <div className="act-menu scene-act-picker" ref={wrapRef}>
       <button type="button" className="act-menu-trigger" onClick={() => setOpen((v) => !v)} title="Act">
         {current?.name ?? "No act"}
         <IconChevronDown size={12} />
@@ -230,6 +256,145 @@ function ActMenu({
   );
 }
 
+/** Small fixed-choice dropdown, same card style as ActMenu, for scene
+ * heading prefix / time-of-day (INT./EXT., DAY/NIGHT, etc.). */
+function SimpleDropdown({
+  value,
+  options,
+  onSelect,
+  className,
+}: {
+  value: string;
+  options: string[];
+  onSelect: (v: string) => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocMouseDown(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    window.document.addEventListener("mousedown", onDocMouseDown);
+    return () => window.document.removeEventListener("mousedown", onDocMouseDown);
+  }, [open]);
+
+  return (
+    <div className={`act-menu ${open ? "open" : ""} ${className ?? ""}`} ref={wrapRef}>
+      <button type="button" className="act-menu-trigger" onClick={() => setOpen((v) => !v)}>
+        {value}
+        <IconChevronDown size={12} className="act-menu-chevron" />
+      </button>
+      {open && (
+        <div className="type-menu-panel vertical">
+          {options.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              className={`type-menu-item-row ${opt === value ? "active" : ""}`}
+              onClick={() => {
+                onSelect(opt);
+                setOpen(false);
+              }}
+            >
+              <span className="type-menu-check-slot">{opt === value && <IconCheck size={13} />}</span>
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Editable text field with an app-styled suggestion dropdown (replaces
+ * native <input list> datalist popups, which can't be restyled). Free text
+ * is always allowed — the list is a reminder, not a constraint. */
+function ComboBox({
+  value,
+  onChange,
+  onCommit,
+  options,
+  className,
+  placeholder,
+  fieldRef,
+  onFocus,
+  onKeyDown,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onCommit?: () => void;
+  options: string[];
+  className?: string;
+  placeholder?: string;
+  fieldRef?: (el: HTMLInputElement | null) => void;
+  onFocus?: () => void;
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  const filtered = options
+    .filter((o) => o.trim().length > 0)
+    .filter((o) => o.toUpperCase() !== value.trim().toUpperCase())
+    .filter((o) => !value.trim() || o.toUpperCase().includes(value.trim().toUpperCase()))
+    .slice(0, 8);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocMouseDown(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    window.document.addEventListener("mousedown", onDocMouseDown);
+    return () => window.document.removeEventListener("mousedown", onDocMouseDown);
+  }, [open]);
+
+  return (
+    <div className="combo-box" ref={wrapRef}>
+      <input
+        ref={fieldRef}
+        className={className}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => {
+          setOpen(true);
+          onFocus?.();
+        }}
+        onBlur={() => {
+          setOpen(false);
+          onCommit?.();
+        }}
+        onKeyDown={onKeyDown}
+      />
+      {open && filtered.length > 0 && (
+        <div className="type-menu-panel vertical combo-panel">
+          {filtered.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              className="type-menu-item-row"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onChange(opt);
+                setOpen(false);
+                onCommit?.();
+              }}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Editor() {
   const document = useStore((s) => s.document);
   const patchDocument = useStore((s) => s.patchDocument);
@@ -244,6 +409,10 @@ export default function Editor() {
       if (!Number.isInteger(idx) || idx < 0 || idx >= ELEMENT_TYPE_CYCLE.length) return;
       e.preventDefault();
       setElementType(active.sceneId, active.elementId, ELEMENT_TYPE_CYCLE[idx]);
+      // Action/Character/Dialogue etc. render as different DOM element types
+      // (textarea vs. input), so React remounts the field on a type change
+      // and drops focus/cursor — put it back on the (new) field.
+      focusElement(active.elementId);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -255,8 +424,8 @@ export default function Editor() {
     ? document.scenes.find((s) => s.id === active.sceneId)?.elements.find((e) => e.id === active.elementId)
     : undefined;
 
-  const allHeadings = Array.from(new Set(document.scenes.map((s) => s.heading)));
   const allCharacterNames = document.characters.map((c) => c.name);
+  const allLocationNames = document.locations.map((l) => l.name);
   const allTransitions = Array.from(
     new Set([
       ...COMMON_TRANSITIONS,
@@ -362,6 +531,7 @@ export default function Editor() {
         onSelect={(type) => {
           if (!active) return;
           setElementType(active.sceneId, active.elementId, type);
+          focusElement(active.elementId);
         }}
       />
       <div className="editor-scroll">
@@ -369,6 +539,15 @@ export default function Editor() {
           {document.scenes.map((scene, index) => {
             const act = document.acts.find((a) => a.id === scene.act_id);
             const bandColor = scene.color ?? act?.color ?? null;
+            const heading = parseHeading(scene.heading);
+            const setHeadingPart = (patch: Partial<{ prefix: string; location: string; time: string }>) =>
+              updateSceneField(scene.id, {
+                heading: formatHeading(
+                  patch.prefix ?? heading.prefix,
+                  patch.location ?? heading.location,
+                  patch.time ?? heading.time,
+                ),
+              });
             return (
             <div className="scene-block" id={`scene-${scene.id}`} key={scene.id}>
               <div
@@ -378,34 +557,53 @@ export default function Editor() {
                   borderLeftColor: bandColor ?? "var(--line-strong)",
                 }}
               >
-                <span className="scene-number">{index + 1}</span>
-                <input
-                  className="scene-heading-input"
-                  value={scene.heading}
-                  list="heading-suggestions"
-                  onChange={(e) => updateSceneField(scene.id, { heading: e.target.value.toUpperCase() })}
-                />
-                <input
-                  className="scene-synopsis"
-                  placeholder="Add a synopsis…"
-                  value={scene.synopsis}
-                  onChange={(e) => updateSceneField(scene.id, { synopsis: e.target.value })}
-                />
-                <input
-                  type="color"
-                  className="scene-color"
-                  value={scene.color ?? "#ffffff"}
-                  onChange={(e) => updateSceneField(scene.id, { color: e.target.value })}
-                  title="Scene color"
-                />
-                <ActMenu
-                  acts={document.acts}
-                  value={scene.act_id}
-                  onSelect={(actId) => updateSceneField(scene.id, { act_id: actId })}
-                />
-                <button className="icon-button ghost danger" onClick={() => deleteScene(scene.id)} title="Delete scene">
-                  <IconTrash size={15} />
-                </button>
+                <div className="scene-toolbar-row">
+                  <span className="scene-number">{index + 1}</span>
+                  <SimpleDropdown
+                    className="scene-prefix-dropdown"
+                    value={heading.prefix}
+                    options={SCENE_PREFIX_OPTIONS}
+                    onSelect={(prefix) => setHeadingPart({ prefix })}
+                  />
+                  <ComboBox
+                    className="scene-location-input"
+                    value={heading.location}
+                    options={allLocationNames}
+                    placeholder="Location"
+                    onChange={(location) => setHeadingPart({ location })}
+                  />
+                  <span className="scene-heading-dash">-</span>
+                  <SimpleDropdown
+                    className="scene-time-dropdown"
+                    value={heading.time || "DAY"}
+                    options={SCENE_TIME_OPTIONS}
+                    onSelect={(time) => setHeadingPart({ time })}
+                  />
+                  <span className="scene-toolbar-spacer" />
+                  <input
+                    type="color"
+                    className="scene-color"
+                    value={scene.color ?? "#ffffff"}
+                    onChange={(e) => updateSceneField(scene.id, { color: e.target.value })}
+                    title="Scene color"
+                  />
+                  <ActMenu
+                    acts={document.acts}
+                    value={scene.act_id}
+                    onSelect={(actId) => updateSceneField(scene.id, { act_id: actId })}
+                  />
+                  <button className="icon-button ghost danger" onClick={() => deleteScene(scene.id)} title="Delete scene">
+                    <IconTrash size={15} />
+                  </button>
+                </div>
+                <div className="scene-toolbar-row">
+                  <input
+                    className="scene-synopsis"
+                    placeholder="Add a synopsis…"
+                    value={scene.synopsis}
+                    onChange={(e) => updateSceneField(scene.id, { synopsis: e.target.value })}
+                  />
+                </div>
               </div>
 
               {scene.elements.map((el) => (
@@ -414,12 +612,8 @@ export default function Editor() {
                     elementType={el.type}
                     className={`element-text el-${el.type}`}
                     value={el.text}
-                    listId={
-                      el.type === "character"
-                        ? "character-suggestions"
-                        : el.type === "transition"
-                          ? "transition-suggestions"
-                          : undefined
+                    suggestions={
+                      el.type === "character" ? allCharacterNames : el.type === "transition" ? allTransitions : undefined
                     }
                     fieldRef={(node) => {
                       refs.current[el.id] = node;
@@ -435,6 +629,7 @@ export default function Editor() {
                       } else if (e.key === "Tab") {
                         e.preventDefault();
                         setElementType(scene.id, el.id, cycleType(el.type, e.shiftKey ? -1 : 1));
+                        focusElement(el.id);
                       } else if (e.key === "Backspace" && el.text === "") {
                         e.preventDefault();
                         removeElement(scene.id, el.id);
@@ -446,12 +641,12 @@ export default function Editor() {
             </div>
             );
           })}
-
-          <button className="add-scene-button" onClick={addScene}>
-            <IconPlus size={15} />
-            Add Scene
-          </button>
         </div>
+
+        <button className="add-scene-button" onClick={addScene}>
+          <IconPlus size={15} />
+          Add Scene
+        </button>
       </div>
 
       <div className="status-bar">
@@ -462,22 +657,6 @@ export default function Editor() {
           Enter: next line · Tab/Shift+Tab or ⌘1-6: change type · Type INT./EXT. to split a new scene
         </span>
       </div>
-
-      <datalist id="heading-suggestions">
-        {allHeadings.map((h) => (
-          <option key={h} value={h} />
-        ))}
-      </datalist>
-      <datalist id="character-suggestions">
-        {allCharacterNames.map((n) => (
-          <option key={n} value={n} />
-        ))}
-      </datalist>
-      <datalist id="transition-suggestions">
-        {allTransitions.map((t) => (
-          <option key={t} value={t} />
-        ))}
-      </datalist>
     </div>
   );
 }

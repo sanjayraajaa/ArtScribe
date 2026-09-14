@@ -94,6 +94,42 @@ export function tint(hex: string | null | undefined, alpha: number, fallback = "
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+export const SCENE_PREFIX_OPTIONS = ["INT.", "EXT.", "INT./EXT.", "EST."];
+export const SCENE_TIME_OPTIONS = [
+  "DAY",
+  "NIGHT",
+  "MORNING",
+  "AFTERNOON",
+  "EVENING",
+  "DAWN",
+  "DUSK",
+  "CONTINUOUS",
+  "LATER",
+  "SAME TIME",
+];
+const HEADING_PREFIXES = ["INT./EXT.", "EXT./INT.", "INT.", "EXT.", "EST."];
+
+/** Splits a scene heading string into its editable parts. Any prefix or
+ * time-of-day text that doesn't match a known option is preserved as
+ * free text rather than silently dropped. */
+export function parseHeading(heading: string): { prefix: string; location: string; time: string } {
+  const upper = heading.trim().toUpperCase();
+  const sorted = [...HEADING_PREFIXES].sort((a, b) => b.length - a.length);
+  const match = sorted.find((p) => upper.startsWith(p));
+  const rest = (match ? upper.slice(match.length) : upper).trim();
+  const prefix = match ?? "INT.";
+  const dashIdx = rest.lastIndexOf(" - ");
+  if (dashIdx === -1) return { prefix, location: rest, time: "" };
+  return { prefix, location: rest.slice(0, dashIdx).trim(), time: rest.slice(dashIdx + 3).trim() };
+}
+
+export function formatHeading(prefix: string, location: string, time: string): string {
+  const loc = location.trim();
+  const t = time.trim();
+  const base = `${prefix}${loc ? ` ${loc}` : ""}`;
+  return t ? `${base} - ${t}` : base;
+}
+
 export function wordCount(text: string): number {
   const trimmed = text.trim();
   if (!trimmed) return 0;
