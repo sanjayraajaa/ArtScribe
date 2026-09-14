@@ -40,6 +40,9 @@ export const api = {
   exportHtml: (path: string, document: Document) =>
     invoke<void>("export_html", { path, document }),
 
+  exportPdf: (path: string, document: Document) =>
+    invoke<void>("export_pdf", { path, document }),
+
   resyncEntities: (document: Document) => invoke<Document>("resync_entities", { document }),
 
   getCharacterReport: (document: Document, characterId: string) =>

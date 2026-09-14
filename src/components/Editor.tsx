@@ -13,6 +13,7 @@ import {
   SCENE_TIME_OPTIONS,
   sceneWordCount,
   tint,
+  uuid,
   wordCount,
 } from "../lib/model";
 import { confirmDialog } from "../lib/dialog";
@@ -20,8 +21,6 @@ import {
   IconAlignLeft,
   IconArrowLeftRight,
   IconCamera,
-  IconCheck,
-  IconChevronDown,
   IconMessageSquare,
   IconParentheses,
   IconPlus,
@@ -191,88 +190,33 @@ function ElementTypeBar({
   );
 }
 
-/** Same dark rounded-card dropdown style as the old per-line picker, as a
- * vertical list — used anywhere a plain <select> would otherwise appear.
- * used anywhere a plain <select> would otherwise appear (e.g. Act). */
-function ActMenu({
+/** Writable Act picker: type to filter existing acts, click to select, or
+ * commit (blur/Enter) a name that doesn't match anything to create a new
+ * act on the fly — same "free text + reminder list" pattern as ComboBox,
+ * extended to an id-referencing field instead of a plain string. */
+function ActField({
   acts,
   value,
-  onSelect,
+  onSelectExisting,
+  onCreateNew,
+  onClear,
 }: {
   acts: { id: string; name: string; color: string | null }[];
   value: string | null;
-  onSelect: (id: string | null) => void;
+  onSelectExisting: (id: string) => void;
+  onCreateNew: (name: string) => void;
+  onClear: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement | null>(null);
   const current = acts.find((a) => a.id === value);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDocMouseDown(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    window.document.addEventListener("mousedown", onDocMouseDown);
-    return () => window.document.removeEventListener("mousedown", onDocMouseDown);
-  }, [open]);
-
-  return (
-    <div className="act-menu scene-act-picker" ref={wrapRef}>
-      <button type="button" className="act-menu-trigger" onClick={() => setOpen((v) => !v)} title="Act">
-        {current?.name ?? "No act"}
-        <IconChevronDown size={12} />
-      </button>
-      {open && (
-        <div className="type-menu-panel vertical">
-          <button
-            type="button"
-            className={`type-menu-item-row ${value === null ? "active" : ""}`}
-            onClick={() => {
-              onSelect(null);
-              setOpen(false);
-            }}
-          >
-            <span className="type-menu-check-slot">{value === null && <IconCheck size={13} />}</span>
-            No act
-          </button>
-          {acts.map((act) => (
-            <button
-              key={act.id}
-              type="button"
-              className={`type-menu-item-row ${act.id === value ? "active" : ""}`}
-              onClick={() => {
-                onSelect(act.id);
-                setOpen(false);
-              }}
-            >
-              <span className="type-menu-check-slot">{act.id === value && <IconCheck size={13} />}</span>
-              <span className="act-menu-swatch" style={{ background: act.color ?? "var(--line-strong)" }} />
-              {act.name}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Small fixed-choice dropdown, same card style as ActMenu, for scene
- * heading prefix / time-of-day (INT./EXT., DAY/NIGHT, etc.). */
-function SimpleDropdown({
-  value,
-  options,
-  onSelect,
-  className,
-}: {
-  value: string;
-  options: string[];
-  onSelect: (v: string) => void;
-  className?: string;
-}) {
+  const [text, setText] = useState(current?.name ?? "");
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    setText(current?.name ?? "");
+  }, [current?.name]);
+
+  useEffect(() => {
     if (!open) return;
     function onDocMouseDown(e: MouseEvent) {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
@@ -281,28 +225,71 @@ function SimpleDropdown({
     return () => window.document.removeEventListener("mousedown", onDocMouseDown);
   }, [open]);
 
+  function commit() {
+    setOpen(false);
+    const trimmed = text.trim();
+    if (!trimmed) {
+      onClear();
+      return;
+    }
+    const match = acts.find((a) => a.name.toUpperCase() === trimmed.toUpperCase());
+    if (match) onSelectExisting(match.id);
+    else onCreateNew(trimmed);
+  }
+
+  const filtered = acts.filter((a) => !text.trim() || a.name.toUpperCase().includes(text.trim().toUpperCase()));
+  const isNewName = text.trim().length > 0 && !acts.some((a) => a.name.toUpperCase() === text.trim().toUpperCase());
+
   return (
-    <div className={`act-menu ${open ? "open" : ""} ${className ?? ""}`} ref={wrapRef}>
-      <button type="button" className="act-menu-trigger" onClick={() => setOpen((v) => !v)}>
-        {value}
-        <IconChevronDown size={12} className="act-menu-chevron" />
-      </button>
-      {open && (
-        <div className="type-menu-panel vertical">
-          {options.map((opt) => (
+    <div className="act-field" ref={wrapRef}>
+      <input
+        className="act-field-input"
+        value={text}
+        placeholder="No act"
+        onChange={(e) => {
+          setText(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+      />
+      {open && (filtered.length > 0 || isNewName) && (
+        <div className="type-menu-panel vertical combo-panel">
+          {filtered.map((a) => (
             <button
-              key={opt}
+              key={a.id}
               type="button"
-              className={`type-menu-item-row ${opt === value ? "active" : ""}`}
-              onClick={() => {
-                onSelect(opt);
+              className={`type-menu-item-row ${a.id === value ? "active" : ""}`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onSelectExisting(a.id);
+                setText(a.name);
                 setOpen(false);
               }}
             >
-              <span className="type-menu-check-slot">{opt === value && <IconCheck size={13} />}</span>
-              {opt}
+              <span className="act-menu-swatch" style={{ background: a.color ?? "var(--line-strong)" }} />
+              {a.name}
             </button>
           ))}
+          {isNewName && (
+            <button
+              type="button"
+              className="type-menu-item-row"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onCreateNew(text.trim());
+                setOpen(false);
+              }}
+            >
+              <IconPlus size={13} /> Create "{text.trim()}"
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -334,6 +321,7 @@ function ComboBox({
   onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(-1);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   const filtered = options
@@ -341,6 +329,10 @@ function ComboBox({
     .filter((o) => o.toUpperCase() !== value.trim().toUpperCase())
     .filter((o) => !value.trim() || o.toUpperCase().includes(value.trim().toUpperCase()))
     .slice(0, 8);
+
+  useEffect(() => {
+    setHighlight(-1);
+  }, [open, value]);
 
   useEffect(() => {
     if (!open) return;
@@ -351,8 +343,19 @@ function ComboBox({
     return () => window.document.removeEventListener("mousedown", onDocMouseDown);
   }, [open]);
 
+  function selectOption(opt: string) {
+    onChange(opt);
+    setOpen(false);
+    onCommit?.();
+  }
+
   return (
-    <div className="combo-box" ref={wrapRef}>
+    // The suggestion panel below anchors to this wrapper's box, so the
+    // wrapper must carry the same sizing/position class as the input
+    // itself (e.g. .el-character's fixed width + auto margin) — otherwise
+    // the wrapper defaults to full-row width and the panel ends up
+    // floating away from wherever the (centered/narrow) input actually is.
+    <div className={`combo-box ${className ?? ""}`} ref={wrapRef}>
       <input
         ref={fieldRef}
         className={className}
@@ -370,20 +373,37 @@ function ComboBox({
           setOpen(false);
           onCommit?.();
         }}
-        onKeyDown={onKeyDown}
+        onKeyDown={(e) => {
+          if (open && filtered.length > 0 && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+            e.preventDefault();
+            const delta = e.key === "ArrowDown" ? 1 : -1;
+            setHighlight((h) => (h + delta + filtered.length) % filtered.length);
+            return;
+          }
+          if (open && highlight >= 0 && e.key === "Enter") {
+            e.preventDefault();
+            selectOption(filtered[highlight]);
+            return;
+          }
+          if (open && e.key === "Escape") {
+            e.preventDefault();
+            setOpen(false);
+            return;
+          }
+          onKeyDown?.(e);
+        }}
       />
       {open && filtered.length > 0 && (
         <div className="type-menu-panel vertical combo-panel">
-          {filtered.map((opt) => (
+          {filtered.map((opt, i) => (
             <button
               key={opt}
               type="button"
-              className="type-menu-item-row"
+              className={`type-menu-item-row ${i === highlight ? "highlight" : ""}`}
+              onMouseEnter={() => setHighlight(i)}
               onMouseDown={(e) => {
                 e.preventDefault();
-                onChange(opt);
-                setOpen(false);
-                onCommit?.();
+                selectOption(opt);
               }}
             >
               {opt}
@@ -392,6 +412,68 @@ function ComboBox({
         </div>
       )}
     </div>
+  );
+}
+
+/** The INT./Location/DAY controls each hold their own local text while
+ * being edited, only reconstructing and committing the combined heading
+ * string on blur/select. Re-deriving all three from a live re-parse of the
+ * combined string on every keystroke (the previous approach) is lossy
+ * whenever one valid value is a text-prefix of another (typing "INT./EXT."
+ * collapses back to "INT." the moment you type past it) and trims trailing
+ * spaces out of Location as you type them. */
+function SceneHeadingFields({
+  heading,
+  onCommit,
+  locationSuggestions,
+}: {
+  heading: string;
+  onCommit: (newHeading: string) => void;
+  locationSuggestions: string[];
+}) {
+  const parsed = parseHeading(heading);
+  const [prefix, setPrefix] = useState(parsed.prefix);
+  const [location, setLocation] = useState(parsed.location);
+  const [time, setTime] = useState(parsed.time);
+
+  useEffect(() => {
+    const p = parseHeading(heading);
+    setPrefix(p.prefix);
+    setLocation(p.location);
+    setTime(p.time);
+  }, [heading]);
+
+  function commit(next: Partial<{ prefix: string; location: string; time: string }>) {
+    onCommit(formatHeading(next.prefix ?? prefix, next.location ?? location, next.time ?? time));
+  }
+
+  return (
+    <>
+      <ComboBox
+        className="scene-prefix-input"
+        value={prefix}
+        options={SCENE_PREFIX_OPTIONS}
+        onChange={(v) => setPrefix(v.toUpperCase())}
+        onCommit={() => commit({ prefix })}
+      />
+      <ComboBox
+        className="scene-location-input"
+        value={location}
+        options={locationSuggestions}
+        placeholder="Location"
+        onChange={setLocation}
+        onCommit={() => commit({ location })}
+      />
+      <span className="scene-heading-dash">-</span>
+      <ComboBox
+        className="scene-time-input"
+        value={time}
+        options={SCENE_TIME_OPTIONS}
+        placeholder="DAY"
+        onChange={(v) => setTime(v.toUpperCase())}
+        onCommit={() => commit({ time })}
+      />
+    </>
   );
 }
 
@@ -441,6 +523,10 @@ export default function Editor() {
         el.setSelectionRange(el.value.length, el.value.length);
       }
     });
+  }
+
+  function updateDocumentField(patch: Partial<{ title: string; subtitle: string; author: string; draft: string }>) {
+    commitDocument((doc) => ({ ...doc, ...patch }));
   }
 
   function updateSceneField(sceneId: string, patch: Partial<Scene>) {
@@ -535,19 +621,42 @@ export default function Editor() {
         }}
       />
       <div className="editor-scroll">
+        <div className="page title-page">
+          <div className="title-page-center">
+            <input
+              className="title-page-title"
+              value={document.title}
+              placeholder="Untitled Screenplay"
+              onChange={(e) => updateDocumentField({ title: e.target.value })}
+            />
+            <input
+              className="title-page-subtitle"
+              value={document.subtitle}
+              placeholder="Subtitle (optional)"
+              onChange={(e) => updateDocumentField({ subtitle: e.target.value })}
+            />
+            <div className="title-page-by">
+              <span>written by</span>
+              <input
+                className="title-page-author"
+                value={document.author}
+                placeholder="Author Name"
+                onChange={(e) => updateDocumentField({ author: e.target.value })}
+              />
+            </div>
+          </div>
+          <input
+            className="title-page-draft"
+            value={document.draft}
+            placeholder="Draft 1 — Month Year"
+            onChange={(e) => updateDocumentField({ draft: e.target.value })}
+          />
+        </div>
+
         <div className="page">
           {document.scenes.map((scene, index) => {
             const act = document.acts.find((a) => a.id === scene.act_id);
             const bandColor = scene.color ?? act?.color ?? null;
-            const heading = parseHeading(scene.heading);
-            const setHeadingPart = (patch: Partial<{ prefix: string; location: string; time: string }>) =>
-              updateSceneField(scene.id, {
-                heading: formatHeading(
-                  patch.prefix ?? heading.prefix,
-                  patch.location ?? heading.location,
-                  patch.time ?? heading.time,
-                ),
-              });
             return (
             <div className="scene-block" id={`scene-${scene.id}`} key={scene.id}>
               <div
@@ -559,25 +668,10 @@ export default function Editor() {
               >
                 <div className="scene-toolbar-row">
                   <span className="scene-number">{index + 1}</span>
-                  <SimpleDropdown
-                    className="scene-prefix-dropdown"
-                    value={heading.prefix}
-                    options={SCENE_PREFIX_OPTIONS}
-                    onSelect={(prefix) => setHeadingPart({ prefix })}
-                  />
-                  <ComboBox
-                    className="scene-location-input"
-                    value={heading.location}
-                    options={allLocationNames}
-                    placeholder="Location"
-                    onChange={(location) => setHeadingPart({ location })}
-                  />
-                  <span className="scene-heading-dash">-</span>
-                  <SimpleDropdown
-                    className="scene-time-dropdown"
-                    value={heading.time || "DAY"}
-                    options={SCENE_TIME_OPTIONS}
-                    onSelect={(time) => setHeadingPart({ time })}
+                  <SceneHeadingFields
+                    heading={scene.heading}
+                    locationSuggestions={allLocationNames}
+                    onCommit={(newHeading) => updateSceneField(scene.id, { heading: newHeading })}
                   />
                   <span className="scene-toolbar-spacer" />
                   <input
@@ -587,10 +681,19 @@ export default function Editor() {
                     onChange={(e) => updateSceneField(scene.id, { color: e.target.value })}
                     title="Scene color"
                   />
-                  <ActMenu
+                  <ActField
                     acts={document.acts}
                     value={scene.act_id}
-                    onSelect={(actId) => updateSceneField(scene.id, { act_id: actId })}
+                    onSelectExisting={(actId) => updateSceneField(scene.id, { act_id: actId })}
+                    onClear={() => updateSceneField(scene.id, { act_id: null })}
+                    onCreateNew={(name) => {
+                      const created = { id: uuid(), name, color: null };
+                      commitDocument((doc) => ({
+                        ...doc,
+                        acts: [...doc.acts, created],
+                        scenes: doc.scenes.map((s) => (s.id === scene.id ? { ...s, act_id: created.id } : s)),
+                      }));
+                    }}
                   />
                   <button className="icon-button ghost danger" onClick={() => deleteScene(scene.id)} title="Delete scene">
                     <IconTrash size={15} />
@@ -602,6 +705,13 @@ export default function Editor() {
                     placeholder="Add a synopsis…"
                     value={scene.synopsis}
                     onChange={(e) => updateSceneField(scene.id, { synopsis: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        (e.target as HTMLInputElement).blur();
+                        if (scene.elements[0]) focusElement(scene.elements[0].id);
+                      }
+                    }}
                   />
                 </div>
               </div>

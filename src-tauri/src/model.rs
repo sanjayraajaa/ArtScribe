@@ -185,6 +185,14 @@ pub struct Document {
     pub id: Uuid,
     pub schema_version: u32,
     pub title: String,
+    /// Title page fields (F-DOC-4-adjacent). `#[serde(default)]` so project
+    /// files saved before these existed still load without a migration.
+    #[serde(default)]
+    pub subtitle: String,
+    #[serde(default)]
+    pub author: String,
+    #[serde(default)]
+    pub draft: String,
     pub language: String,
     pub scenes: Vec<Scene>,
     pub acts: Vec<Act>,
@@ -223,6 +231,9 @@ impl Document {
             id: Uuid::new_v4(),
             schema_version: SCHEMA_VERSION,
             title: title.into(),
+            subtitle: String::new(),
+            author: String::new(),
+            draft: String::new(),
             language: "en".into(),
             scenes: vec![scene],
             acts: vec![act_one, act_two, act_three],

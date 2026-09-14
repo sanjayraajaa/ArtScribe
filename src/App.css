@@ -76,8 +76,12 @@ select:focus-visible,
  * "focus-visible" even on a plain mouse click, so without this override the
  * rule above would still draw a loud accent box around them. */
 .element-text:focus-visible,
+.scene-prefix-input:focus-visible,
+.scene-time-input:focus-visible,
 .scene-location-input:focus-visible,
-.scene-synopsis:focus-visible {
+.scene-synopsis:focus-visible,
+.act-field-input:focus-visible,
+.title-page input:focus-visible {
   outline: none;
 }
 
@@ -276,11 +280,95 @@ button {
   margin: 0 auto;
   background: var(--paper-raised);
   border: 1px solid var(--line);
-  padding: 1in 1in 1in 1.5in;
+  /* Symmetric on screen to avoid a wide dead gutter on the left while
+     editing — the 1.5in binding margin only matters for physical paper,
+     and the actual PDF/print output (pdf.rs, and the @media print rules
+     below) still use the correct industry-standard asymmetric margin. */
+  padding: 1in;
   font-family: var(--mono);
   font-size: 12pt;
   line-height: 1.35;
   min-height: 11in;
+}
+
+/* Title page (unnumbered "page 1" of a screenplay) */
+.title-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.title-page-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  text-align: center;
+  margin-top: 3in;
+}
+
+.title-page-title {
+  font-family: var(--mono);
+  font-size: 18pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-align: center;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  width: 5.5in;
+}
+
+.title-page-subtitle {
+  font-family: var(--mono);
+  font-size: 12pt;
+  font-style: italic;
+  text-align: center;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  width: 5.5in;
+}
+
+.title-page-by {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  margin-top: 1in;
+  font-family: var(--mono);
+  font-size: 12pt;
+  color: var(--ink-soft);
+}
+
+.title-page-author {
+  font-family: var(--mono);
+  font-size: 12pt;
+  text-align: center;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  width: 4in;
+}
+
+.title-page-draft {
+  font-family: var(--mono);
+  font-size: 10.5pt;
+  text-align: center;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  width: 4in;
+  margin-top: auto;
+  margin-bottom: 0.5in;
+}
+
+.title-page input:hover,
+.title-page input:focus {
+  background: var(--paper);
+  border-radius: 4px;
 }
 
 .scene-block {
@@ -292,7 +380,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  margin: 0 -1in 0.6rem -1.5in;
+  margin: 0 -1in 0.6rem -1in;
   padding: 0.4rem 1in 0.4rem 0.6rem;
   font-family: var(--sans);
   border-left: 4px solid var(--line-strong);
@@ -314,37 +402,32 @@ button {
   flex-shrink: 0;
 }
 
-/* INT./EXT. and DAY/NIGHT read as plain document text, not form controls —
- * no border/background until hovered, chevron hidden until hovered/open. */
-.scene-prefix-dropdown .act-menu-trigger,
-.scene-time-dropdown .act-menu-trigger {
+/* INT./EXT., Location, and DAY/NIGHT all read as plain document text, not
+ * form controls — no border/background, ever (matches .element-text
+ * below). All three are writable with a suggestion dropdown (ComboBox). */
+.scene-prefix-input,
+.scene-time-input,
+.scene-location-input {
   font-family: var(--mono);
   font-size: 12pt;
   font-weight: 700;
   text-transform: uppercase;
-  border: 1px solid transparent;
+  border: none;
   background: transparent;
-  padding: 0 0.2rem;
+  padding: 0;
   color: var(--ink);
 }
 
-.scene-prefix-dropdown .act-menu-trigger:hover,
-.scene-time-dropdown .act-menu-trigger:hover {
-  border-color: var(--line-strong);
-  background: var(--paper-raised);
+.scene-prefix-input {
+  width: 4.2rem;
 }
 
-.scene-prefix-dropdown .act-menu-chevron,
-.scene-time-dropdown .act-menu-chevron {
-  opacity: 0;
-  transition: opacity 0.1s;
+.scene-time-input {
+  width: 6rem;
 }
 
-.scene-prefix-dropdown:hover .act-menu-chevron,
-.scene-prefix-dropdown.open .act-menu-chevron,
-.scene-time-dropdown:hover .act-menu-chevron,
-.scene-time-dropdown.open .act-menu-chevron {
-  opacity: 1;
+.scene-location-input {
+  width: 100%;
 }
 
 .scene-heading-dash {
@@ -352,27 +435,10 @@ button {
   flex-shrink: 0;
 }
 
-.scene-location-input {
-  font-family: var(--mono);
-  font-weight: 700;
-  text-transform: uppercase;
-  width: 100%;
-  border: 1px solid transparent;
-  background: transparent;
-  padding: 0.15rem 0.3rem;
-  border-radius: 4px;
-}
-
-.scene-location-input:hover,
-.scene-location-input:focus {
-  border-color: var(--line-strong);
-  background: var(--paper-raised);
-}
-
 .combo-box {
   position: relative;
   flex: 1 1 auto;
-  min-width: 6rem;
+  min-width: 4rem;
 }
 
 .combo-panel {
@@ -397,27 +463,24 @@ button {
   flex-shrink: 0;
 }
 
-.act-menu {
+.act-field {
   position: relative;
   flex-shrink: 0;
 }
 
-.act-menu-trigger {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
+.act-field-input {
   font-size: 0.72rem;
   border: 1px solid var(--line-strong);
   border-radius: 4px;
   padding: 0.2rem 0.45rem;
   background: var(--paper-raised);
   color: var(--ink);
-  white-space: nowrap;
+  width: 7rem;
 }
 
-.act-menu-trigger:hover {
+.act-field-input:hover,
+.act-field-input:focus {
   border-color: var(--accent);
-  color: var(--accent);
 }
 
 .act-menu-swatch {
@@ -492,8 +555,8 @@ button {
   opacity: 0.4;
 }
 
-/* Dropdown panel (used by ActMenu and any other non-icon dropdown) — same
- * dark rounded card style the element-type toolbar used to use per-line. */
+/* Dropdown/suggestion panel (used by ActField, ComboBox, etc.) — same dark
+ * rounded card style the element-type toolbar used to use per-line. */
 .type-menu-panel {
   position: absolute;
   top: 100%;
@@ -531,7 +594,8 @@ button {
   color: var(--ink);
 }
 
-.type-menu-item-row:hover {
+.type-menu-item-row:hover,
+.type-menu-item-row.highlight {
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -984,9 +1048,10 @@ button {
   .add-scene-button,
   .scene-number,
   .scene-color,
-  .scene-act-picker,
+  .act-field,
   .scene-synopsis,
-  .scene-toolbar .icon-button {
+  .scene-toolbar .icon-button,
+  .combo-panel {
     display: none !important;
   }
   .app-body,
@@ -997,6 +1062,10 @@ button {
   .page {
     border: none;
     box-shadow: none;
+    /* Restore the correct industry-standard asymmetric (binding) margin
+       for physical print — the on-screen .page is symmetric purely to
+       save screen space while editing. */
+    padding: 1in 1in 1in 1.5in !important;
   }
   .scene-toolbar {
     background: none !important;
@@ -1004,19 +1073,12 @@ button {
     padding: 0 !important;
     margin: 1em 0 0 -1.5in !important;
   }
-  .scene-prefix-dropdown .type-menu-panel,
-  .scene-time-dropdown .type-menu-panel {
-    display: none !important;
-  }
-  .scene-prefix-dropdown .act-menu-trigger,
-  .scene-time-dropdown .act-menu-trigger,
+  .scene-prefix-input,
+  .scene-time-input,
   .scene-location-input {
     border: none !important;
     background: none !important;
-    padding: 0 0.2rem;
-  }
-  .act-menu-trigger svg {
-    display: none !important;
+    padding: 0 0.1rem;
   }
   .element-text {
     border: none !important;

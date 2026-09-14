@@ -83,6 +83,9 @@ export interface Document {
   id: string;
   schema_version: number;
   title: string;
+  subtitle: string;
+  author: string;
+  draft: string;
   language: string;
   scenes: Scene[];
   acts: Act[];

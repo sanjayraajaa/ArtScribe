@@ -1,6 +1,7 @@
 mod commands;
 mod fountain;
 mod model;
+mod pdf;
 mod project_file;
 mod reports;
 mod state;
@@ -27,6 +28,7 @@ pub fn run() {
             commands::export_fountain,
             commands::export_plain_text,
             commands::export_html,
+            commands::export_pdf,
             commands::resync_entities,
             commands::get_character_report,
             commands::get_location_report,

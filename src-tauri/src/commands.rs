@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::model::Document;
 use crate::state::{self, AppState};
-use crate::{fountain, project_file, reports};
+use crate::{fountain, pdf, project_file, reports};
 
 #[tauri::command]
 pub fn new_document(state: State<AppState>) -> Document {
@@ -112,6 +112,11 @@ pub fn export_html(path: String, document: Document) -> Result<(), String> {
     }
     html.push_str("</body></html>");
     std::fs::write(&path, html).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn export_pdf(path: String, document: Document) -> Result<(), String> {
+    pdf::export(&document, &PathBuf::from(&path))
 }
 
 fn escape_html(input: &str) -> String {

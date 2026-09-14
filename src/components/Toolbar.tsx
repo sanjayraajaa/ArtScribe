@@ -109,10 +109,10 @@ export default function Toolbar() {
     }
   }
 
-  async function handleExport(kind: "fountain" | "text" | "html") {
+  async function handleExport(kind: "fountain" | "text" | "html" | "pdf") {
     if (!document) return;
     setExportMenuOpen(false);
-    const ext = kind === "html" ? "html" : kind === "text" ? "txt" : "fountain";
+    const ext = kind;
     const chosen = await saveFileDialog({
       filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
       defaultPath: `${document.title}.${ext}`,
@@ -122,7 +122,8 @@ export default function Toolbar() {
     try {
       if (kind === "fountain") await api.exportFountain(chosen, document);
       else if (kind === "text") await api.exportPlainText(chosen, document);
-      else await api.exportHtml(chosen, document);
+      else if (kind === "html") await api.exportHtml(chosen, document);
+      else await api.exportPdf(chosen, document);
     } catch (e) {
       await alertDialog(`Could not export: ${e}`);
     } finally {
@@ -130,25 +131,16 @@ export default function Toolbar() {
     }
   }
 
-  /** PDF export (F-EXP-1) goes through the WebView's native print-to-PDF —
-   * the OS print dialog's "Save as PDF" / "Print to File" option — rather
-   * than a silent direct-to-file save. Force the Editor view first, since
-   * that's the only view styled for @media print, regardless of whichever
-   * view the user is currently on. */
-  function printScreenplay() {
+  /** Physical printing still goes through the OS print dialog — force the
+   * Editor view first, since that's the only view styled for @media print,
+   * regardless of whichever view the user is currently on. PDF export
+   * (below) does NOT use this path: it renders directly in Rust, since the
+   * WebView's print-to-PDF panel isn't reliable across platforms. */
+  function handlePrint() {
     setView("editor");
     requestAnimationFrame(() => {
       requestAnimationFrame(() => window.print());
     });
-  }
-
-  function handlePrint() {
-    printScreenplay();
-  }
-
-  function handleExportPdf() {
-    setExportMenuOpen(false);
-    printScreenplay();
   }
 
   return (
@@ -203,7 +195,7 @@ export default function Toolbar() {
           </button>
           {exportMenuOpen && (
             <div className="dropdown-menu" onMouseLeave={() => setExportMenuOpen(false)}>
-              <button onClick={handleExportPdf}>PDF (via Print dialog)</button>
+              <button onClick={() => handleExport("pdf")}>PDF (.pdf)</button>
               <button onClick={() => handleExport("fountain")}>Fountain (.fountain)</button>
               <button onClick={() => handleExport("text")}>Plain Text (.txt)</button>
               <button onClick={() => handleExport("html")}>HTML (.html)</button>
