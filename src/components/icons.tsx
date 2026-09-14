@@ -245,6 +245,53 @@ export function IconList(props: IconProps) {
   );
 }
 
+export function IconAlignLeft(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="4" y1="12" x2="14" y2="12" />
+      <line x1="4" y1="18" x2="17" y2="18" />
+    </svg>
+  );
+}
+
+export function IconMessageSquare(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />
+    </svg>
+  );
+}
+
+export function IconParentheses(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 4c-2.2 2.6-3.3 5.4-3.3 8s1.1 5.4 3.3 8" />
+      <path d="M15 4c2.2 2.6 3.3 5.4 3.3 8s-1.1 5.4-3.3 8" />
+    </svg>
+  );
+}
+
+export function IconArrowLeftRight(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <polyline points="17 7 21 11 17 15" />
+      <line x1="21" y1="11" x2="9" y2="11" />
+      <polyline points="7 17 3 13 7 9" />
+      <line x1="3" y1="13" x2="15" y2="13" />
+    </svg>
+  );
+}
+
+export function IconCamera(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
+      <circle cx="12" cy="13.5" r="3.2" />
+    </svg>
+  );
+}
+
 export function IconCheck(props: IconProps) {
   return (
     <svg {...base(props)}>

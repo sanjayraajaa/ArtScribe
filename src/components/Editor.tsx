@@ -5,10 +5,31 @@ import type { Document, ElementType, Scene } from "../types";
 import { ELEMENT_TYPE_CYCLE, ELEMENT_TYPE_LABELS, nextElementType } from "../types";
 import { newElement, newScene, resyncEntities, sceneWordCount, tint, wordCount } from "../lib/model";
 import { confirmDialog } from "../lib/dialog";
-import { IconCheck, IconChevronDown, IconPlus, IconTrash } from "./icons";
+import {
+  IconAlignLeft,
+  IconArrowLeftRight,
+  IconCamera,
+  IconCheck,
+  IconChevronDown,
+  IconMessageSquare,
+  IconParentheses,
+  IconPlus,
+  IconTrash,
+  IconUser,
+} from "./icons";
 
 const HEADING_PATTERN = /^(INT\.\/EXT\.|INT\/EXT|EXT\.\/INT\.|INT\.|EXT\.|EST\.|I\/E\.)\s*\S/i;
 const COMMON_TRANSITIONS = ["CUT TO:", "DISSOLVE TO:", "SMASH CUT TO:", "FADE TO:", "FADE OUT."];
+
+const TYPE_ICONS: Record<ElementType, typeof IconAlignLeft> = {
+  scene_heading: IconAlignLeft,
+  action: IconAlignLeft,
+  character: IconUser,
+  dialogue: IconMessageSquare,
+  parenthetical: IconParentheses,
+  transition: IconArrowLeftRight,
+  shot: IconCamera,
+};
 
 function cycleType(current: ElementType, direction: 1 | -1): ElementType {
   const idx = ELEMENT_TYPE_CYCLE.indexOf(current);
@@ -54,6 +75,7 @@ function ElementField({
   value,
   onChange,
   onKeyDown,
+  onFocus,
   onBlur,
   className,
   fieldRef,
@@ -63,6 +85,7 @@ function ElementField({
   value: string;
   onChange: (v: string) => void;
   onKeyDown: (e: KeyboardEvent<FieldEl>) => void;
+  onFocus: () => void;
   onBlur: () => void;
   className: string;
   fieldRef: (el: FieldEl | null) => void;
@@ -77,6 +100,7 @@ function ElementField({
         list={listId}
         onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
+        onFocus={onFocus}
         onBlur={onBlur}
         spellCheck
       />
@@ -102,17 +126,60 @@ function ElementField({
         resize(e.target);
       }}
       onKeyDown={onKeyDown}
+      onFocus={onFocus}
       onBlur={onBlur}
       spellCheck
     />
   );
 }
 
-/** Dropdown for manually overriding an element's type (F-ED-1 manual
- * override). Tab/Shift+Tab still cycles types without opening this. */
-function TypeMenu({ value, onSelect }: { value: ElementType; onSelect: (type: ElementType) => void }) {
+/** Static toolbar pinned above the page (not per-line) for changing the
+ * currently-focused element's type — click, or ⌘1 .. ⌘6 / Ctrl+1 .. 6. */
+function ElementTypeBar({
+  activeType,
+  onSelect,
+}: {
+  activeType: ElementType | null;
+  onSelect: (type: ElementType) => void;
+}) {
+  return (
+    <div className="element-type-bar">
+      {ELEMENT_TYPE_CYCLE.map((t, i) => {
+        const Icon = TYPE_ICONS[t];
+        return (
+          <button
+            key={t}
+            type="button"
+            className={`element-type-bar-item ${t === activeType ? "active" : ""}`}
+            title={`${ELEMENT_TYPE_LABELS[t]} (⌘${i + 1})`}
+            disabled={activeType === null}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onSelect(t)}
+          >
+            <Icon size={16} />
+            <span>{ELEMENT_TYPE_LABELS[t]}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Same dark rounded-card dropdown style as the old per-line picker, as a
+ * vertical list — used anywhere a plain <select> would otherwise appear.
+ * used anywhere a plain <select> would otherwise appear (e.g. Act). */
+function ActMenu({
+  acts,
+  value,
+  onSelect,
+}: {
+  acts: { id: string; name: string; color: string | null }[];
+  value: string | null;
+  onSelect: (id: string | null) => void;
+}) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const current = acts.find((a) => a.id === value);
 
   useEffect(() => {
     if (!open) return;
@@ -124,31 +191,37 @@ function TypeMenu({ value, onSelect }: { value: ElementType; onSelect: (type: El
   }, [open]);
 
   return (
-    <div className={`type-menu ${open ? "open" : ""}`} ref={wrapRef}>
-      <button
-        type="button"
-        className="type-menu-trigger"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => setOpen((v) => !v)}
-        title="Element type (or press Tab / Shift+Tab)"
-      >
+    <div className="act-menu" ref={wrapRef}>
+      <button type="button" className="act-menu-trigger" onClick={() => setOpen((v) => !v)} title="Act">
+        {current?.name ?? "No act"}
         <IconChevronDown size={12} />
       </button>
       {open && (
-        <div className="type-menu-panel">
-          {ELEMENT_TYPE_CYCLE.map((t) => (
+        <div className="type-menu-panel vertical">
+          <button
+            type="button"
+            className={`type-menu-item-row ${value === null ? "active" : ""}`}
+            onClick={() => {
+              onSelect(null);
+              setOpen(false);
+            }}
+          >
+            <span className="type-menu-check-slot">{value === null && <IconCheck size={13} />}</span>
+            No act
+          </button>
+          {acts.map((act) => (
             <button
-              key={t}
+              key={act.id}
               type="button"
-              className={`type-menu-item ${t === value ? "active" : ""}`}
-              onMouseDown={(e) => e.preventDefault()}
+              className={`type-menu-item-row ${act.id === value ? "active" : ""}`}
               onClick={() => {
-                onSelect(t);
+                onSelect(act.id);
                 setOpen(false);
               }}
             >
-              <span className="type-menu-check">{t === value ? <IconCheck size={13} /> : null}</span>
-              {ELEMENT_TYPE_LABELS[t]}
+              <span className="type-menu-check-slot">{act.id === value && <IconCheck size={13} />}</span>
+              <span className="act-menu-swatch" style={{ background: act.color ?? "var(--line-strong)" }} />
+              {act.name}
             </button>
           ))}
         </div>
@@ -162,8 +235,25 @@ export default function Editor() {
   const patchDocument = useStore((s) => s.patchDocument);
   const commitDocument = useStore((s) => s.commitDocument);
   const refs = useRef<Record<string, FieldEl | null>>({});
+  const [active, setActive] = useState<{ sceneId: string; elementId: string } | null>(null);
+
+  useEffect(() => {
+    function onKeyDown(e: globalThis.KeyboardEvent) {
+      if (!active || e.shiftKey || !(e.metaKey || e.ctrlKey)) return;
+      const idx = Number(e.key) - 1;
+      if (!Number.isInteger(idx) || idx < 0 || idx >= ELEMENT_TYPE_CYCLE.length) return;
+      e.preventDefault();
+      setElementType(active.sceneId, active.elementId, ELEMENT_TYPE_CYCLE[idx]);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [active]);
 
   if (!document) return null;
+
+  const activeElement = active
+    ? document.scenes.find((s) => s.id === active.sceneId)?.elements.find((e) => e.id === active.elementId)
+    : undefined;
 
   const allHeadings = Array.from(new Set(document.scenes.map((s) => s.heading)));
   const allCharacterNames = document.characters.map((c) => c.name);
@@ -267,6 +357,13 @@ export default function Editor() {
 
   return (
     <div className="editor-view">
+      <ElementTypeBar
+        activeType={activeElement?.type ?? null}
+        onSelect={(type) => {
+          if (!active) return;
+          setElementType(active.sceneId, active.elementId, type);
+        }}
+      />
       <div className="editor-scroll">
         <div className="page">
           {document.scenes.map((scene, index) => {
@@ -301,19 +398,11 @@ export default function Editor() {
                   onChange={(e) => updateSceneField(scene.id, { color: e.target.value })}
                   title="Scene color"
                 />
-                <select
-                  className="scene-act"
-                  value={scene.act_id ?? ""}
-                  onChange={(e) => updateSceneField(scene.id, { act_id: e.target.value || null })}
-                  title="Act"
-                >
-                  <option value="">No act</option>
-                  {document.acts.map((act) => (
-                    <option key={act.id} value={act.id}>
-                      {act.name}
-                    </option>
-                  ))}
-                </select>
+                <ActMenu
+                  acts={document.acts}
+                  value={scene.act_id}
+                  onSelect={(actId) => updateSceneField(scene.id, { act_id: actId })}
+                />
                 <button className="icon-button ghost danger" onClick={() => deleteScene(scene.id)} title="Delete scene">
                   <IconTrash size={15} />
                 </button>
@@ -321,7 +410,6 @@ export default function Editor() {
 
               {scene.elements.map((el) => (
                 <div className={`element-row element-${el.type}`} key={el.id}>
-                  <TypeMenu value={el.type} onSelect={(type) => setElementType(scene.id, el.id, type)} />
                   <ElementField
                     elementType={el.type}
                     className={`element-text el-${el.type}`}
@@ -337,6 +425,7 @@ export default function Editor() {
                       refs.current[el.id] = node;
                     }}
                     onChange={(v) => updateElementText(scene.id, el.id, el.type === "character" ? v.toUpperCase() : v)}
+                    onFocus={() => setActive({ sceneId: scene.id, elementId: el.id })}
                     onBlur={() => commitElement(scene.id, el.id)}
                     onKeyDown={(e: KeyboardEvent<FieldEl>) => {
                       if (e.key === "Enter" && !e.shiftKey) {
@@ -369,7 +458,9 @@ export default function Editor() {
         <span>{document.scenes.length} scenes</span>
         <span>{totalWords.toLocaleString()} words</span>
         <span>~{pageEstimate} pages (estimate)</span>
-        <span className="hint">Enter: next line · Tab/Shift+Tab: change type · Type INT./EXT. to split a new scene</span>
+        <span className="hint">
+          Enter: next line · Tab/Shift+Tab or ⌘1-6: change type · Type INT./EXT. to split a new scene
+        </span>
       </div>
 
       <datalist id="heading-suggestions">

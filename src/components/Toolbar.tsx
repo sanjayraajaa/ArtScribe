@@ -29,6 +29,7 @@ export default function Toolbar() {
   const redo = useStore((s) => s.redo);
   const loadDocument = useStore((s) => s.loadDocument);
   const markSaved = useStore((s) => s.markSaved);
+  const setView = useStore((s) => s.setView);
   const [recent, setRecent] = useState<string[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -129,8 +130,25 @@ export default function Toolbar() {
     }
   }
 
+  /** PDF export (F-EXP-1) goes through the WebView's native print-to-PDF —
+   * the OS print dialog's "Save as PDF" / "Print to File" option — rather
+   * than a silent direct-to-file save. Force the Editor view first, since
+   * that's the only view styled for @media print, regardless of whichever
+   * view the user is currently on. */
+  function printScreenplay() {
+    setView("editor");
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => window.print());
+    });
+  }
+
   function handlePrint() {
-    window.print();
+    printScreenplay();
+  }
+
+  function handleExportPdf() {
+    setExportMenuOpen(false);
+    printScreenplay();
   }
 
   return (
@@ -185,6 +203,7 @@ export default function Toolbar() {
           </button>
           {exportMenuOpen && (
             <div className="dropdown-menu" onMouseLeave={() => setExportMenuOpen(false)}>
+              <button onClick={handleExportPdf}>PDF (via Print dialog)</button>
               <button onClick={() => handleExport("fountain")}>Fountain (.fountain)</button>
               <button onClick={() => handleExport("text")}>Plain Text (.txt)</button>
               <button onClick={() => handleExport("html")}>HTML (.html)</button>
